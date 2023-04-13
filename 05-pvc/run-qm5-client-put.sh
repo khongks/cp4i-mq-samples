@@ -59,6 +59,6 @@ ls -l $MQSSLKEYR.*
 
 # Put messages to the queue
 
-echo "Test message 1" | amqsputc Q1 ${QMGR_NAME}
-echo "Test message 2" | amqsputc Q1 ${QMGR_NAME}
+echo "Test message 1" | /opt/mqm/samp/bin/amqsputc Q1 ${QMGR_NAME}
+echo "Test message 2" | /opt/mqm/samp/bin/amqsputc Q1 ${QMGR_NAME}
 
