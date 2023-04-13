@@ -48,7 +48,7 @@ EOF
 
 # Set environment variables for the client
 
-export MQCCDTURL=ccdt.json
+export MQCCDTURL=file://ccdt/Users/kskhong/Documents/Dev/mq/cp4i-mq-samples/01-tlsccdt.json
 export MQSSLKEYR=app1key
 # check:
 echo MQCCDTURL=$MQCCDTURL

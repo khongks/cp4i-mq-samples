@@ -7,9 +7,11 @@
 # Not for Production use. For demo and training only.
 #
 
+. ./env.vars
+
 # Find the queue manager host name
 
-qmhostname=`oc get route -n cp4i qm1-ibm-mq-qm -o jsonpath="{.spec.host}"`
+qmhostname=`oc get route -n ${NAMESPACE} ${NAME}-ibm-mq-qm -o jsonpath="{.spec.host}"`
 echo $qmhostname
 
 
@@ -24,7 +26,7 @@ cat > ccdt.json << EOF
     "channel":
     [
         {
-            "name": "QM1CHL",
+            "name": "${QMGR_NAME}CHL",
             "clientConnection":
             {
                 "connection":
@@ -34,11 +36,12 @@ cat > ccdt.json << EOF
                         "port": 443
                     }
                 ],
-                "queueManager": "QM1"
+                "queueManager": "${QMGR_NAME}"
             },
             "transmissionSecurity":
             {
-              "cipherSpecification": "ANY_TLS12_OR_HIGHER"
+              "cipherSpecification": "TLS_RSA_WITH_AES_256_CBC_SHA256",
+              "certificateLabel": "example"
             },
             "type": "clientConnection"
         }
@@ -47,17 +50,16 @@ cat > ccdt.json << EOF
 EOF
 
 # Set environment variables for the client
-
-export MQCCDTURL=ccdt.json
+# export MQCCDTURL=file:///Users/kskhong/Documents/Dev/mq/cp4i-mq-samples/01-tls/ccdt.json
+export MQCHLLIB=/Users/kskhong/Documents/Dev/mq/cp4i-mq-samples/01-tls
+export MQCHLTAB=ccdt.json
 export MQSSLKEYR=app1key
 # check:
 echo MQCCDTURL=$MQCCDTURL
-ls -l $MQCCDTURL
 echo MQSSLKEYR=$MQSSLKEYR
 ls -l $MQSSLKEYR.*
 
 # Put messages to the queue
 
-echo "Test message 1" | amqsputc Q1 QM1
-echo "Test message 2" | amqsputc Q1 QM1
-
+echo "Test message 1" | amqsputc APPQ QM1
+echo "Test message 2" | amqsputc APPQ QM1
