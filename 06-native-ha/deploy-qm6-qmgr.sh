@@ -7,9 +7,11 @@
 # Not for Production use. For demo and training only.
 #
 
+. ./env.vars
+
 # Create a private key and a self-signed certificate for the queue manager
 
-openssl req -newkey rsa:2048 -nodes -keyout qm6.key -subj "/CN=qm6" -x509 -days 3650 -out qm6.crt
+openssl req -newkey rsa:2048 -nodes -keyout ${NAME}.key -subj "/CN=${QMGR_NAME}" -x509 -days 3650 -out ${NAME}.crt
 
 # Set up the first client ("app1")
 # Create a private key and a self-signed certificate for the client application
@@ -22,7 +24,7 @@ runmqakm -keydb -create -db app1key.kdb -pw password -type cms -stash
 
 # Add the queue manager public key to the client key database:
 
-runmqakm -cert -add -db app1key.kdb -label qm6cert -file qm6.crt -format ascii -stashed
+runmqakm -cert -add -db app1key.kdb -label ${NAME}cert -file ${NAME}.crt -format ascii -stashed
 
 # Add the client's certificate and key to the client key database:
 
@@ -50,7 +52,7 @@ runmqakm -keydb -create -db app2key.kdb -pw password -type cms -stash
 
 # Add the queue manager public key to the client key database:
 
-runmqakm -cert -add -db app2key.kdb -label qm6cert -file qm6.crt -format ascii -stashed
+runmqakm -cert -add -db app2key.kdb -label ${NAME}cert -file ${NAME}.crt -format ascii -stashed
 
 # Add the client's certificate and key to the client key database:
 
@@ -69,92 +71,92 @@ runmqakm -cert -list -db app2key.kdb -stashed
 
 # Create TLS Secret for the Queue Manager
 
-oc create secret tls example-06-qm6-secret -n cp4i --key="qm6.key" --cert="qm6.crt"
+oc create secret tls example-06-${NAME}-secret -n ${NAMESPACE} --key="${NAME}.key" --cert="${NAME}.crt"
 
 # Create TLS Secret with the client's certificate ("app1")
 
-oc create secret generic example-06-app1-secret -n cp4i --from-file=app1.crt=app1.crt
+oc create secret generic example-06-app1-secret -n ${NAMESPACE} --from-file=app1.crt=app1.crt
 
 # Create TLS Secret with the client's certificate ("app2")
 
-oc create secret generic example-06-app2-secret -n cp4i --from-file=app2.crt=app2.crt
+oc create secret generic example-06-app2-secret -n ${NAMESPACE} --from-file=app2.crt=app2.crt
 
 # Create a config map containing MQSC commands and qm.ini
 
-cat > qm6-configmap.yaml << EOF
+cat > "${NAME}-configmap.yaml" << EOF
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: example-06-qm6-configmap
+  name: example-06-${NAME}-configmap
 data:
-  qm6.mqsc: |
+  ${NAME}.mqsc: |
     DEFINE QLOCAL('Q1') REPLACE DEFPSIST(YES) 
-    DEFINE CHANNEL(QM6CHL) CHLTYPE(SVRCONN) REPLACE TRPTYPE(TCP) SSLCAUTH(REQUIRED) SSLCIPH('ANY_TLS12_OR_HIGHER')
+    DEFINE CHANNEL(${QMGR_NAME}CHL) CHLTYPE(SVRCONN) REPLACE TRPTYPE(TCP) SSLCAUTH(REQUIRED) SSLCIPH('ANY_TLS12_OR_HIGHER')
     ALTER AUTHINFO(SYSTEM.DEFAULT.AUTHINFO.IDPWOS) AUTHTYPE(IDPWOS) CHCKCLNT(OPTIONAL)
-    SET CHLAUTH('QM6CHL') TYPE(SSLPEERMAP) SSLPEER('CN=app1') USERSRC(MAP) MCAUSER('app1') ACTION(REPLACE)
+    SET CHLAUTH('${QMGR_NAME}CHL') TYPE(SSLPEERMAP) SSLPEER('CN=app1') USERSRC(MAP) MCAUSER('app1') ACTION(REPLACE)
     SET AUTHREC PRINCIPAL('app1') OBJTYPE(QMGR) AUTHADD(CONNECT,INQ)
     SET AUTHREC PROFILE('Q1') PRINCIPAL('app1') OBJTYPE(QUEUE) AUTHADD(INQ,PUT)
-    SET CHLAUTH('QM6CHL') TYPE(SSLPEERMAP) SSLPEER('CN=app2') USERSRC(MAP) MCAUSER('app2') ACTION(REPLACE)
+    SET CHLAUTH('${QMGR_NAME}CHL') TYPE(SSLPEERMAP) SSLPEER('CN=app2') USERSRC(MAP) MCAUSER('app2') ACTION(REPLACE)
     SET AUTHREC PRINCIPAL('app2') OBJTYPE(QMGR) AUTHADD(CONNECT,INQ)
     SET AUTHREC PROFILE('Q1') PRINCIPAL('app2') OBJTYPE(QUEUE) AUTHADD(BROWSE,GET,INQ)
     REFRESH SECURITY
-  qm6.ini: |-
+  ${NAME}.ini: |-
     Service:
       Name=AuthorizationService
       EntryPoints=14
       SecurityPolicy=UserExternal
 EOF
 
-oc apply -n cp4i -f qm6-configmap.yaml
+oc apply -n ${NAMESPACE} -f ${NAME}-configmap.yaml
 
 # Create the required route for SNI
 
-cat > qm6chl-route.yaml << EOF
+cat > "${NAME}chl-route.yaml" << EOF
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: example-06-qm6-route
+  name: example-06-${NAME}-route
 spec:
-  host: qm6chl.chl.mq.ibm.com
+  host: ${NAME}chl.chl.mq.ibm.com
   to:
     kind: Service
-    name: qm6-ibm-mq
+    name: ${NAME}-ibm-mq
   port:
     targetPort: 1414
   tls:
     termination: passthrough
 EOF
 
-oc apply -n cp4i -f qm6chl-route.yaml
+oc apply -n ${NAMESPACE} -f ${NAME}chl-route.yaml
 
 # Deploy the queue manager
 
-cat > qm6-qmgr.yaml << EOF
+cat > "${NAME}-qmgr.yaml" << EOF
 apiVersion: mq.ibm.com/v1beta1
 kind: QueueManager
 metadata:
-  name: qm6
+  name: ${NAME}
 spec:
   license:
     accept: true
-    license: L-RJON-CD3JKX
+    license: ${LICENSE}
     use: NonProduction
   queueManager:
-    name: QM6
+    name: ${QMGR_NAME}
     ini:
       - configMap:
-          name: example-06-qm6-configmap
+          name: example-06-${NAME}-configmap
           items:
-            - qm6.ini
+            - ${NAME}.ini
     mqsc:
     - configMap:
-        name: example-06-qm6-configmap
+        name: example-06-${NAME}-configmap
         items:
-        - qm6.mqsc
+        - ${NAME}.mqsc
     availability:
       type: NativeHA
     storage:
-      defaultClass: ibmc-block-gold
+      defaultClass: ${STORAGE_CLASS}
       persistedData:
         enabled: false
       queueManager:
@@ -162,14 +164,14 @@ spec:
         type: persistent-claim
       recoveryLogs:
         enabled: false
-  version: 9.3.0.0-r2
+  version: ${VERSION}
   web:
-    enabled: false
+    enabled: true
   pki:
     keys:
       - name: example
         secret:
-          secretName: example-06-qm6-secret
+          secretName: example-06-${NAME}-secret
           items: 
           - tls.key
           - tls.crt
@@ -186,23 +188,23 @@ spec:
           - app2.crt
 EOF
 
-oc apply -n cp4i -f qm6-qmgr.yaml
+oc apply -n ${NAMESPACE} -f ${NAME}-qmgr.yaml
 
 # wait 5 minutes for queue manager to be up and running
 # (shouldn't take more than 2 minutes, but just in case)
 for i in {1..60}
 do
-  phase=`oc get qmgr -n cp4i qm6 -o jsonpath="{.status.phase}"`
+  phase=`oc get qmgr -n ${NAMESPACE} ${NAME} -o jsonpath="{.status.phase}"`
   if [ "$phase" == "Running" ] ; then break; fi
-  echo "Waiting for qm6...$i"
-  oc get qmgr -n cp4i qm6
+  echo "Waiting for ${NAME}...$i"
+  oc get qmgr -n ${NAMESPACE} ${NAME}
   sleep 5
 done
 
 if [ $phase == Running ]
-   then echo Queue Manager qm6 is ready; 
+   then echo Queue Manager ${NAME} is ready; 
    exit; 
 fi
 
-echo "*** Queue Manager qm6 is not ready ***"
+echo "*** Queue Manager ${NAME} is not ready ***"
 exit 1
