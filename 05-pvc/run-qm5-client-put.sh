@@ -7,15 +7,16 @@
 # Not for Production use. For demo and training only.
 #
 
+. ./env.vars
+
 # Find the queue manager host name
 
-qmhostname=`oc get route -n cp4i qm5-ibm-mq-qm -o jsonpath="{.spec.host}"`
+qmhostname=`oc get route -n ${NAMESPACE} ${NAME}-ibm-mq-qm -o jsonpath="{.spec.host}"`
 echo $qmhostname
-
 
 # Test:
 
-ping -c 3 $qmhostname
+ping -c 2 $qmhostname
 
 # Create ccdt.json
 
@@ -24,7 +25,7 @@ cat > ccdt.json << EOF
     "channel":
     [
         {
-            "name": "QM5CHL",
+            "name": "${QMGR_NAME}CHL",
             "clientConnection":
             {
                 "connection":
@@ -34,7 +35,7 @@ cat > ccdt.json << EOF
                         "port": 443
                     }
                 ],
-                "queueManager": "QM5"
+                "queueManager": "${QMGR_NAME}"
             },
             "transmissionSecurity":
             {
@@ -58,6 +59,6 @@ ls -l $MQSSLKEYR.*
 
 # Put messages to the queue
 
-echo "Test message 1" | amqsputc Q1 QM5
-echo "Test message 2" | amqsputc Q1 QM5
+echo "Test message 1" | amqsputc Q1 ${QMGR_NAME}
+echo "Test message 2" | amqsputc Q1 ${QMGR_NAME}
 
