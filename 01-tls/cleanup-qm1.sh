@@ -6,23 +6,20 @@
 #
 # Not for Production use. For demo and training only.
 #
-
-. ./env.vars
-
 # delete queue manager
-oc delete -n ${NAMESPACE} qmgr ${NAME}
-rm ${NAME}-qmgr.yaml
+oc delete -n cp4i qmgr qm1
+rm qm1-qmgr.yaml
 
 # delete config map
-oc delete -n ${NAMESPACE} cm example-01-${NAME}-configmap
-rm ${NAME}-configmap.yaml
+oc delete -n cp4i cm example-01-qm1-configmap
+rm qm1-configmap.yaml
 
 # delete route
-oc delete -n ${NAMESPACE} route example-01-${NAME}-route
-rm ${NAME}chl-route.yaml
+oc delete -n cp4i route example-01-qm1-route
+rm qm1chl-route.yaml
 
 # delete secret
-oc delete -n ${NAMESPACE} secret example-01-${NAME}-secret
+oc delete -n cp4i secret example-01-qm1-secret
 
 # delete files
-rm ${NAME}.crt ${NAME}.key app1key.* ccdt.json
+rm qm1.crt qm1.key app1key.* ccdt.json

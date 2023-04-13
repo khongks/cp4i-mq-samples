@@ -9,13 +9,17 @@
 
 # Find the queue manager host name
 
-qmhostname=`oc get route -n cp4i qm1-ibm-mq-qm -o jsonpath="{.spec.host}"`
+. ./env.vars
+
+QUEUE_NAME=${1:-"APPQ"}
+
+qmhostname=`oc get route -n ${NAMESPACE} ${NAME}-ibm-mq-qm -o jsonpath="{.spec.host}"`
 echo $qmhostname
 
 
 # Test:
 
-ping -c 3 $qmhostname
+ping -c 2 $qmhostname
 
 # Create ccdt.json
 
@@ -24,7 +28,7 @@ cat > ccdt.json << EOF
     "channel":
     [
         {
-            "name": "QM1CHL",
+            "name": "${QMGR_NAME}CHL",
             "clientConnection":
             {
                 "connection":
@@ -34,11 +38,12 @@ cat > ccdt.json << EOF
                         "port": 443
                     }
                 ],
-                "queueManager": "QM1"
+                "queueManager": "${QMGR_NAME}"
             },
             "transmissionSecurity":
             {
-              "cipherSpecification": "ANY_TLS12_OR_HIGHER"
+              "cipherSpecification": "ANY_TLS12_OR_HIGHER",
+              "certificateLabel": "example"
             },
             "type": "clientConnection"
         }
@@ -56,6 +61,6 @@ ls -l $MQCCDTURL
 echo MQSSLKEYR=$MQSSLKEYR
 ls -l $MQSSLKEYR.*
 
-# Get messages from the queue
+# Get messages from the queue ${QUEUE_NAME}
 
-amqsbcgc Q1 QM1
+/opt/mqm/samp/bin/amqsgetc ${QUEUE_NAME} ${QMGR_NAME}
