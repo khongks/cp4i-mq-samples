@@ -7,9 +7,11 @@
 # Not for Production use. For demo and training only.
 #
 
+. ./env.vars
+
 # Create a private key and a self-signed certificate for the queue manager
 
-openssl req -newkey rsa:2048 -nodes -keyout qm1.key -subj "/CN=qm1" -x509 -days 3650 -out qm1.crt
+openssl req -newkey rsa:2048 -nodes -keyout ${NAME}.key -subj "/CN=${QMGR_NAME}" -x509 -days 3650 -out ${NAME}.crt
 
 # Create the client key database:
 
@@ -17,7 +19,7 @@ runmqakm -keydb -create -db app1key.kdb -pw password -type cms -stash
 
 # Add the queue manager public key to the client key database:
 
-runmqakm -cert -add -db app1key.kdb -label qm1cert -file qm1.crt -format ascii -stashed
+runmqakm -cert -add -db app1key.kdb -label ${NAME}cert -file ${NAME}.crt -format ascii -stashed
 
 # Check. List the database certificates:
 
@@ -25,63 +27,63 @@ runmqakm -cert -list -db app1key.kdb -stashed
 
 # Create TLS Secret for the Queue Manager
 
-oc create secret tls example-01-qm1-secret -n cp4i --key="qm1.key" --cert="qm1.crt"
+oc create secret tls example-01-${NAME}-secret -n ${NAMESPACE} --key="${NAME}.key" --cert="${NAME}.crt"
 
 # Create a config map containing MQSC commands
 
-cat > qm1-configmap.yaml << EOF
+cat > "${NAME}-configmap.yaml" << EOF
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: example-01-qm1-configmap
+  name: example-01-${NAME}-configmap
 data:
-  qm1.mqsc: |
+  ${NAME}.mqsc: |
     DEFINE QLOCAL('Q1') REPLACE DEFPSIST(YES) 
-    DEFINE CHANNEL(QM1CHL) CHLTYPE(SVRCONN) REPLACE TRPTYPE(TCP) SSLCAUTH(OPTIONAL) SSLCIPH('ANY_TLS12_OR_HIGHER')
-    SET CHLAUTH(QM1CHL) TYPE(BLOCKUSER) USERLIST('nobody') ACTION(ADD)
+    DEFINE CHANNEL(${QMGR_NAME}CHL) CHLTYPE(SVRCONN) REPLACE TRPTYPE(TCP) SSLCAUTH(OPTIONAL) SSLCIPH('ANY_TLS12_OR_HIGHER')
+    SET CHLAUTH(${QMGR_NAME}CHL) TYPE(BLOCKUSER) USERLIST('nobody') ACTION(ADD)
 EOF
 
-oc apply -n cp4i -f qm1-configmap.yaml
+oc apply -n ${NAMESPACE} -f ${NAME}-configmap.yaml
 
 # Create the required route for SNI
 
-cat > qm1chl-route.yaml << EOF
+cat > "${NAME}chl-route.yaml" << EOF
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: example-01-qm1-route
+  name: example-01-${NAME}-route
 spec:
-  host: qm1chl.chl.mq.ibm.com
+  host: ${NAME}chl.chl.mq.ibm.com
   to:
     kind: Service
-    name: qm1-ibm-mq
+    name: ${NAME}-ibm-mq
   port:
     targetPort: 1414
   tls:
     termination: passthrough
 EOF
 
-oc apply -n cp4i -f qm1chl-route.yaml
+oc apply -n ${NAMESPACE} -f ${NAME}chl-route.yaml
 
 # Deploy the queue manager
 
-cat > qm1-qmgr.yaml << EOF
+cat > "${NAME}-qmgr.yaml" << EOF
 apiVersion: mq.ibm.com/v1beta1
 kind: QueueManager
 metadata:
-  name: qm1
+  name: ${NAME}
 spec:
   license:
     accept: true
-    license: L-RJON-CD3JKX
+    license: ${LICENSE}
     use: NonProduction
   queueManager:
-    name: QM1
+    name: ${QMGR_NAME}
     mqsc:
     - configMap:
-        name: example-01-qm1-configmap
+        name: example-01-${NAME}-configmap
         items:
-        - qm1.mqsc
+        - ${NAME}.mqsc
     storage:
       queueManager:
         type: ephemeral
@@ -92,36 +94,36 @@ spec:
             - name: MQSNOAUT
               value: 'yes'
           name: qmgr
-  version: 9.3.0.0-r2
+  version: ${VERSION}
   web:
-    enabled: false
+    enabled: true
   pki:
     keys:
       - name: example
         secret:
-          secretName: example-01-qm1-secret
+          secretName: example-01-${NAME}-secret
           items: 
           - tls.key
           - tls.crt
 EOF
 
-oc apply -n cp4i -f qm1-qmgr.yaml
+oc apply -n ${NAMESPACE} -f ${NAME}-qmgr.yaml
 
 # wait 5 minutes for queue manager to be up and running
 # (shouldn't take more than 2 minutes, but just in case)
 for i in {1..60}
 do
-  phase=`oc get qmgr -n cp4i qm1 -o jsonpath="{.status.phase}"`
+  phase=`oc get qmgr -n ${NAMESPACE} ${NAME} -o jsonpath="{.status.phase}"`
   if [ "$phase" == "Running" ] ; then break; fi
-  echo "Waiting for qm1...$i"
-  oc get qmgr -n cp4i qm1
+  echo "Waiting for ${NAME}...$i"
+  oc get qmgr -n ${NAMESPACE} ${NAME}
   sleep 5
 done
 
 if [ $phase == Running ]
-   then echo Queue Manager qm1 is ready; 
+   then echo Queue Manager ${NAME} is ready; 
    exit; 
 fi
 
-echo "*** Queue Manager qm1 is not ready ***"
+echo "*** Queue Manager ${NAME} is not ready ***"
 exit 1
