@@ -14,15 +14,15 @@ oc delete -n ${NAMESPACE} qmgr ${NAME}
 rm ${NAME}-qmgr.yaml
 
 # delete config map
-oc delete -n ${NAMESPACE} cm example-01-${NAME}-configmap
+oc delete -n ${NAMESPACE} cm example-13-${NAME}-configmap
 rm ${NAME}-configmap.yaml
 
 # delete route
-oc delete -n ${NAMESPACE} route example-01-${NAME}-route
+oc delete -n ${NAMESPACE} route example-13-${NAME}-route
 rm ${NAME}chl-route.yaml
 
 # delete secret
-oc delete -n ${NAMESPACE} secret example-01-${NAME}-secret
+oc delete -n ${NAMESPACE} secret example-13-${NAME}-secret
 
 # delete files
 rm ${NAME}.crt ${NAME}.key app1key.* ccdt.json

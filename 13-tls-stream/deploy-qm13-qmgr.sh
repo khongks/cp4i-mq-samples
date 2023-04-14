@@ -27,7 +27,7 @@ runmqakm -cert -list -db app1key.kdb -stashed
 
 # Create TLS Secret for the Queue Manager
 
-oc create secret tls example-01-${NAME}-secret -n ${NAMESPACE} --key="${NAME}.key" --cert="${NAME}.crt"
+oc create secret tls example-13-${NAME}-secret -n ${NAMESPACE} --key="${NAME}.key" --cert="${NAME}.crt"
 
 # Create a config map containing MQSC commands
 
@@ -35,7 +35,7 @@ cat > "${NAME}-configmap.yaml" << EOF
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: example-01-${NAME}-configmap
+  name: example-13-${NAME}-configmap
 data:
   ${NAME}.mqsc: |
     DEFINE QL(SINKQ)
@@ -52,7 +52,7 @@ cat > "${NAME}chl-route.yaml" << EOF
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: example-01-${NAME}-route
+  name: example-13-${NAME}-route
 spec:
   host: ${NAME}chl.chl.mq.ibm.com
   to:
@@ -82,7 +82,7 @@ spec:
     name: ${QMGR_NAME}
     mqsc:
     - configMap:
-        name: example-01-${NAME}-configmap
+        name: example-13-${NAME}-configmap
         items:
         - ${NAME}.mqsc
     storage:
@@ -102,7 +102,7 @@ spec:
     keys:
       - name: example
         secret:
-          secretName: example-01-${NAME}-secret
+          secretName: example-13-${NAME}-secret
           items: 
           - tls.key
           - tls.crt

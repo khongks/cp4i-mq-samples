@@ -63,4 +63,4 @@ ls -l $MQSSLKEYR.*
 
 # Get messages from the queue
 
-/opt/mqm/samp/bin/amqsbcgc ${QUEUE_NAME} ${QMGR_NAME}
+amqsbcgc ${QUEUE_NAME} ${QMGR_NAME}
