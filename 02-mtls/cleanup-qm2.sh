@@ -6,22 +6,23 @@
 #
 # Not for Production use. For demo and training only.
 #
+NAMESPACE=${1:-mq}
 
 # delete queue manager
-oc delete -n cp4i qmgr qm2
+oc delete -n ${NAMESPACE} qmgr qm2
 rm qm2-qmgr.yaml
 
 # delete config map
-oc delete -n cp4i cm example-02-qm2-configmap
+oc delete -n ${NAMESPACE} cm example-02-qm2-configmap
 rm qm2-configmap.yaml
 
 # delete route
-oc delete -n cp4i route example-02-qm2-route
+oc delete -n ${NAMESPACE} route example-02-qm2-route
 rm qm2chl-route.yaml
 
 # delete secrets
-oc delete -n cp4i secret example-02-qm2-secret
-oc delete -n cp4i secret example-02-app1-secret
+oc delete -n ${NAMESPACE} secret example-02-qm2-secret
+oc delete -n ${NAMESPACE} secret example-02-app1-secret
 
 # delete files
 rm qm2.crt qm2.key app1key.* app1.* ccdt.json 

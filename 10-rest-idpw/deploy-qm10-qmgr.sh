@@ -9,22 +9,7 @@
 
 # Create a config map containing MQSC commands
 
-cat > qm10-configmap.yaml << EOF
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: example-10-qm10-configmap
-data:
-  qm10.mqsc: |
-    DEFINE QLOCAL('Q1') REPLACE DEFPSIST(YES) 
-    SET AUTHREC PRINCIPAL('app1') OBJTYPE(QMGR) AUTHADD(CONNECT,INQ)
-    SET AUTHREC PROFILE('Q1') PRINCIPAL('app1') OBJTYPE(QUEUE) AUTHADD(BROWSE,GET,INQ,PUT)
-  qm10.ini: |-
-    Service:
-      Name=AuthorizationService
-      EntryPoints=14
-      SecurityPolicy=UserExternal
-EOF
+openssl pkcs12 -in es-cert.p12 -out tls.key -nodes -nocerts
 
 oc apply -n cp4i -f qm10-configmap.yaml
 

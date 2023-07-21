@@ -9,7 +9,9 @@
 
 # Find the queue manager host name
 
-qmhostname=`oc get route -n cp4i qm2-ibm-mq-qm -o jsonpath="{.spec.host}"`
+NAMESPACE=${1:-mq}
+
+qmhostname=`oc get route -n ${NAMESPACE} qm2-ibm-mq-qm -o jsonpath="{.spec.host}"`
 echo $qmhostname
 
 
