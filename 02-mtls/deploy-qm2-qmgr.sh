@@ -36,6 +36,15 @@ openssl pkcs12 -export -out app1.p12 -inkey app1.key -in app1.crt -password pass
 label=ibmwebspheremq`id -u -n`
 runmqakm -cert -import -target app1key.kdb -file app1.p12 -target_stashed -pw password -new_label $label
 
+# Create a client truststore using qm2cert
+openssl pkcs12 -export -nokeys -in qm2.crt -out truststore.p12 -password pass:password
+
+# Check. List p12
+openssl pkcs12 -nokeys -info -in app1.p12 -passin pass:password
+
+# Check client truststore
+openssl pkcs12 -cacerts -in truststore.p12 -passin pass:password
+
 # Check. List the database certificates:
 
 runmqakm -cert -list -db app1key.kdb -stashed
@@ -48,6 +57,12 @@ oc create secret tls example-02-qm2-secret -n ${NAMESPACE} --key="qm2.key" --cer
 
 oc create secret generic example-02-app1-secret -n ${NAMESPACE} --from-file=app1.crt=app1.crt
 
+# Create JKS store
+
+keytool -import -file qm2.crt -alias qm2.crt -keystore truststore.jks -storepass password -trustcacerts
+
+keytool -importkeystore -srckeystore app1.p12 -srcstoretype pkcs12 -srcstorepass password -destkeystore keystore.jks -deststoretype JKS -deststorepass password
+
 # Create a config map containing MQSC commands
 
 cat > qm2-configmap.yaml << EOF
@@ -57,9 +72,20 @@ metadata:
   name: example-02-qm2-configmap
 data:
   qm2.mqsc: |
-    DEFINE QLOCAL('Q1') REPLACE DEFPSIST(YES) 
-    DEFINE CHANNEL(QM2CHL) CHLTYPE(SVRCONN) REPLACE TRPTYPE(TCP) SSLCAUTH(REQUIRED) SSLCIPH('ANY_TLS12_OR_HIGHER')
+    ALTER QMGR MONQ(MEDIUM)
+    DEFINE QLOCAL('Q1') REPLACE DEFPSIST(YES) MAXDEPTH(10) 
+    ALTER QLOCAL('Q1') QDEPTHHI(80) QDPHIEV(ENABLED) QDEPTHLO(20) QDPLOEV(ENABLED) QDPMAXEV(ENABLED)
+    DEFINE QLOCAL('Q2') REPLACE DEFPSIST(YES) MAXDEPTH(20)
+    ALTER QLOCAL('Q2') QDEPTHHI(80) QDPHIEV(ENABLED) QDEPTHLO(20) QDPLOEV(ENABLED) QDPMAXEV(ENABLED)
+    DEFINE QLOCAL('Q3') REPLACE DEFPSIST(YES) MAXDEPTH(30)
+    ALTER QLOCAL('Q3') QDEPTHHI(80) QDPHIEV(ENABLED) QDEPTHLO(20) QDPLOEV(ENABLED) QDPMAXEV(ENABLED)
+    DEFINE CHANNEL(QM2CHL_MTLS) CHLTYPE(SVRCONN) REPLACE TRPTYPE(TCP) SSLCAUTH(REQUIRED) SSLCIPH('ANY_TLS12_OR_HIGHER')
+    SET CHLAUTH(QM2CHL_MTLS) TYPE(BLOCKUSER) USERLIST('nobody') ACTION(ADD)
+    DEFINE CHANNEL(QM2CHL_TLS) CHLTYPE(SVRCONN) REPLACE TRPTYPE(TCP) SSLCIPH('ANY_TLS12_OR_HIGHER')
+    SET CHLAUTH(QM2CHL_TLS) TYPE(BLOCKUSER) USERLIST('nobody') ACTION(ADD)
+    DEFINE CHANNEL(QM2CHL) CHLTYPE(SVRCONN) REPLACE TRPTYPE(TCP)
     SET CHLAUTH(QM2CHL) TYPE(BLOCKUSER) USERLIST('nobody') ACTION(ADD)
+    REFRESH SECURITY TYPE(SSL)
 EOF
 
 oc apply -n ${NAMESPACE} -f qm2-configmap.yaml
@@ -81,8 +107,41 @@ spec:
   tls:
     termination: passthrough
 EOF
-
 oc apply -n ${NAMESPACE} -f qm2chl-route.yaml
+
+cat > qm2chl_tls-route.yaml << EOF
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: example-02-qm2-tls-route
+spec:
+  host: qm2chl5f-tls.chl.mq.ibm.com
+  to:
+    kind: Service
+    name: qm2-ibm-mq
+  port:
+    targetPort: 1414
+  tls:
+    termination: passthrough
+EOF
+oc apply -n ${NAMESPACE} -f qm2chl_tls-route.yaml
+
+cat > qm2chl_mtls-route.yaml << EOF
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: example-02-qm2-mtls-route
+spec:
+  host: qm2chl5f-mtls.chl.mq.ibm.com
+  to:
+    kind: Service
+    name: qm2-ibm-mq
+  port:
+    targetPort: 1414
+  tls:
+    termination: passthrough
+EOF
+oc apply -n ${NAMESPACE} -f qm2chl_mtls-route.yaml
 
 # Deploy the queue manager
 
@@ -94,7 +153,7 @@ metadata:
 spec:
   license:
     accept: true
-    license: L-RJON-CD3JKX
+    license: L-YBXJ-ADJNSM
     use: NonProduction
   queueManager:
     name: QM2
@@ -113,9 +172,9 @@ spec:
             - name: MQSNOAUT
               value: 'yes'
           name: qmgr
-  version: 9.3.0.0-r2
+  version: 9.3.3.0-r1
   web:
-    enabled: false
+    enabled: true
   pki:
     keys:
       - name: example

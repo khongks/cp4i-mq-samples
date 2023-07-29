@@ -26,7 +26,7 @@ cat > ccdt.json << EOF
     "channel":
     [
         {
-            "name": "QM2CHL",
+            "name": "QM2CHL_MTLS",
             "clientConnection":
             {
                 "connection":
@@ -50,7 +50,7 @@ EOF
 
 # Set environment variables for the client
 
-export MQCCDTURL=file://ccdt/Users/kskhong/Documents/Dev/mq/cp4i-mq-samples/01-tlsccdt.json
+export MQCCDTURL=ccdt.json
 export MQSSLKEYR=app1key
 # check:
 echo MQCCDTURL=$MQCCDTURL

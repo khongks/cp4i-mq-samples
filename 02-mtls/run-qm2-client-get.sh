@@ -26,7 +26,7 @@ cat > ccdt.json << EOF
     "channel":
     [
         {
-            "name": "QM2CHL",
+            "name": "QM2CHL_MTLS",
             "clientConnection":
             {
                 "connection":
